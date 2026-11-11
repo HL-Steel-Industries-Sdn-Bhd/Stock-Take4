@@ -246,24 +246,14 @@
       margin: 8px;
     }
 
-    /* ===== 历史记录表：宽度由列宽总和决定，可超出 frame ===== */
+    /* ===== 历史记录表 ===== */
     .history-frame table {
       table-layout: fixed;
-      width: 369px;
+      /* width 和 col width 由 JS 动态控制，这里无需写死 */
       border-collapse: collapse;
       font-size: 10px;
       line-height: 1.25;
     }
-
-    /* 默认列宽：DAT SHP GRD SUR CSD THK QTY LCT （合计 369px） */
-    .history-frame col:nth-child(1) { width: 35px; }   /* DAT */
-    .history-frame col:nth-child(2) { width: 75px; }   /* SHP */
-    .history-frame col:nth-child(3) { width: 44px; }   /* GRD */
-    .history-frame col:nth-child(4) { width: 26px; }   /* SUR */
-    .history-frame col:nth-child(5) { width: 85px; }   /* CSD */
-    .history-frame col:nth-child(6) { width: 40px; }   /* THK */
-    .history-frame col:nth-child(7) { width: 30px; }   /* QTY */
-    .history-frame col:nth-child(8) { width: 34px; }   /* LCT */
 
     .history-frame th {
       background: #1d4b6e;
@@ -468,6 +458,12 @@
     const HISTORY_DAYS = 7;      // 当天 + 前 6 天
     const HEADERS      = ['DAT', 'SHP', 'GRD', 'SUR', 'CSD', 'THK', 'QTY', 'LCT'];
 
+    /* =========================================================
+       自定义的初始列宽数据
+       ========================================================= */
+    const WIDTHS_PORTRAIT  = [35, 75, 44, 26, 85, 40, 30, 34];
+    const WIDTHS_LANDSCAPE = [40, 90, 67, 70, 95, 50, 34, 48]; // 电脑横屏和手机横屏共用
+
     /* ---------------------------------------------------------
        1. 从 URL query 读取 Storekeeper
        --------------------------------------------------------- */
@@ -584,9 +580,10 @@
     const historyFrame = document.getElementById('historyFrame');
     const refreshBtn   = document.getElementById('refreshBtn');
 
-    // 用户手动拖拽后的列宽（px）与表格总宽，刷新数据时保留
+    // 用户手动拖拽后的列宽与表格总宽
     const savedColWidths = {};
     let savedTableWidth = '';
+    let userHasCustomized = false; // 标记用户是否手动拖拽过
 
     refreshBtn.addEventListener('click', function () {
       loadHistory();
@@ -643,17 +640,71 @@
       const table = historyFrame.querySelector('table');
       const cols  = table.querySelectorAll('colgroup col');
 
-      // 还原用户保存的列宽与总宽
-      if (savedTableWidth) table.style.width = savedTableWidth;
-      Object.keys(savedColWidths).forEach(idx => {
-        if (cols[idx]) cols[idx].style.width = savedColWidths[idx];
-      });
+      if (userHasCustomized && savedTableWidth) {
+        // 如果用户手动调过宽度，优先使用用户的存档
+        table.style.width = savedTableWidth;
+        Object.keys(savedColWidths).forEach(idx => {
+          if (cols[idx]) cols[idx].style.width = savedColWidths[idx];
+        });
+      } else {
+        // 如果没有手动调过，自动应用当前屏幕方向的最优默认宽度
+        applyResponsiveWidths(false);
+      }
 
       makeResizable();
     }
 
     /* ---------------------------------------------------------
-       6. 列宽拖拽（px 模式，总宽可变，可溢出 frame）
+       6. 响应式初始列宽应用机制
+       --------------------------------------------------------- */
+    function applyResponsiveWidths(force = false) {
+      const table = historyFrame.querySelector('table');
+      if (!table) return;
+      
+      // 如果不是强制执行（例如只是刷新数据），且用户已经自定义过，则不覆盖
+      if (!force && userHasCustomized) return;
+
+      const cols = table.querySelectorAll('colgroup col');
+      
+      // 判断方向（不考虑设备类型，只看宽高比。软键盘引起的误判在 resize 监听中已被过滤）
+      const isPortrait = window.innerHeight > window.innerWidth;
+      const widths = isPortrait ? WIDTHS_PORTRAIT : WIDTHS_LANDSCAPE;
+
+      let total = 0;
+      widths.forEach((w, i) => {
+        if (cols[i]) cols[i].style.width = w + 'px';
+        total += w;
+      });
+      table.style.width = total + 'px';
+
+      // 清空用户的自定义记录
+      Object.keys(savedColWidths).forEach(k => delete savedColWidths[k]);
+      savedTableWidth = '';
+      userHasCustomized = false;
+    }
+
+    /* ---------------------------------------------------------
+       7. 监听转屏与窗口缩放（带软键盘防误判）
+       --------------------------------------------------------- */
+    let lastWidth = window.innerWidth;
+
+    window.addEventListener('resize', () => {
+      const currentWidth = window.innerWidth;
+      
+      // 如果宽度变化小于 20px，认为是软键盘弹起导致的高度变化，忽略处理
+      if (Math.abs(currentWidth - lastWidth) < 20) return;
+      
+      lastWidth = currentWidth;
+
+      // 给一点延迟让浏览器完成布局重排
+      setTimeout(() => {
+        // 转屏或窗口尺寸变更时，强制更新为新方向的默认列宽
+        applyResponsiveWidths(true);
+      }, 150);
+    });
+
+    /* ---------------------------------------------------------
+       8. 列宽拖拽（px 模式，总宽可变，可溢出 frame）
        --------------------------------------------------------- */
     function makeResizable() {
       const table = historyFrame.querySelector('table');
@@ -707,8 +758,10 @@
           col.style.width  = newWidth + 'px';
           table.style.width = newTableW + 'px';
 
+          // 记录用户的拖拽行为并保存
           savedColWidths[colIndex] = newWidth + 'px';
           savedTableWidth = newTableW + 'px';
+          userHasCustomized = true; 
         };
 
         const onEnd = () => {
@@ -742,12 +795,6 @@
         .replace(/'/g, '&#039;');
     }
 
-    /* ---------------------------------------------------------
-       时间：把 Timestamp 转成 DD/MM
-       兼容两种来源格式：
-         1) MM/DD/YYYY HH:mm:ss
-         2) YYYY-MM-DD HH:mm:ss
-       --------------------------------------------------------- */
     function pad2(n) {
       return String(n).padStart(2, '0');
     }
@@ -757,19 +804,12 @@
       const s = String(val).trim();
       if (!s) return '';
 
-      // 1) YYYY-MM-DD ...
       let m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
-      if (m) {
-        return pad2(m[3]) + '/' + pad2(m[2]);   // DD/MM
-      }
+      if (m) return pad2(m[3]) + '/' + pad2(m[2]);
 
-      // 2) MM/DD/YYYY ...
       m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
-      if (m) {
-        return pad2(m[2]) + '/' + pad2(m[1]);   // DD/MM
-      }
+      if (m) return pad2(m[2]) + '/' + pad2(m[1]);
 
-      // 3) 兜底
       const d = new Date(s);
       if (!isNaN(d.getTime())) {
         return pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1);
