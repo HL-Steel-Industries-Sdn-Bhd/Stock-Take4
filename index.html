@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Section Stock Take</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #f5f5f5;
+      padding: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      color: #333;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* ================= 顶部栏 ================= */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 0 4px;
+    }
+
+    h1 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #1a1a1a;
+      letter-spacing: -0.4px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .sk-badge {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #007AFF;
+      background: #eaf3ff;
+      border: 1px solid #cfe4ff;
+      padding: 5px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+      max-width: 55%;
+      text-align: right;
+    }
+    .sk-badge.empty {
+      color: #999;
+      background: #f2f2f2;
+      border-color: #e2e2e2;
+    }
+
+    /* ================= 卡片 ================= */
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 18px 16px;
+    }
+
+    .section-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin: 20px 0 12px 0;
+      color: #555;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 6px;
+    }
+    .section-title:first-of-type { margin-top: 0; }
+
+    .form-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .form-group {
+      flex: 1;
+      min-width: 100px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: #666;
+    }
+
+    select, input {
+      width: 100%;
+      padding: 12px 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 1rem;
+      background-color: #fafafa;
+      appearance: none;
+      -webkit-appearance: none;
+      color: #333;
+      transition: all 0.2s;
+    }
+
+    select {
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 16px;
+      padding-right: 36px;
+    }
+
+    input[type="number"] {
+      appearance: textfield;
+      -moz-appearance: textfield;
+    }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .cs-dim-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+    }
+    .cs-dim-container select { flex: 1; min-width: 0; }
+    .cs-dim-x {
+      font-weight: bold;
+      font-size: 1.2rem;
+      color: #888;
+      flex-shrink: 0;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 16px;
+      background-color: #007AFF;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-top: 24px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      letter-spacing: 0.5px;
+    }
+    .submit-btn:active { background-color: #0056CC; }
+    .submit-btn:disabled {
+      background-color: #99C2FF;
+      cursor: not-allowed;
+    }
+
+    #submitMessage {
+      text-align: center;
+      margin-top: 12px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      min-height: 24px;
+      color: #34C759;
+    }
+    .error { color: #FF3B30; }
+
+    /* ================= 最近记录卡片 ================= */
+    .history-card { padding: 14px 12px 12px; }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      gap: 8px;
+    }
+
+    .history-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #555;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* Refresh 按钮：纯文字，无图标、无转动 */
+    .refresh-btn {
+      flex-shrink: 0;
+      height: 32px;
+      padding: 0 14px;
+      border: none;
+      border-radius: 8px;
+      background: #007AFF;
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .refresh-btn:active { background: #0056CC; }
+
+    /* 表格外框（可横向滚动查看被挡住的列） */
+    .history-frame {
+      overflow: auto;
+      max-height: 320px;
+      border: 1px solid #e2eaf2;
+      border-radius: 8px;
+      background: #fff;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+
+    .history-frame .loading {
+      padding: 22px 12px;
+      text-align: center;
+      color: #4b6f8a;
+      font-size: 13px;
+    }
+    .history-frame .error-box {
+      padding: 12px;
+      background: #fff1f0;
+      border: 1px solid #f0b3b0;
+      border-radius: 8px;
+      color: #a12b26;
+      font-size: 12px;
+      margin: 8px;
+    }
+
+    /* ===== 历史记录表（固定列宽，靠横向滚动查看） ===== */
+    .history-frame table {
+      table-layout: fixed;
+      width: 368px;
+      border-collapse: collapse;
+      font-size: 10px;
+      line-height: 1.25;
+    }
+
+    /* 默认列宽：DAT SHP GRD SUR CSD THK QTY LCT （合计 368px） */
+    .history-frame col:nth-child(1) { width: 44px; }   /* DAT */
+    .history-frame col:nth-child(2) { width: 34px; }   /* SHP */
+    .history-frame col:nth-child(3) { width: 44px; }   /* GRD */
+    .history-frame col:nth-child(4) { width: 34px; }   /* SUR */
+    .history-frame col:nth-child(5) { width: 92px; }   /* CSD */
+    .history-frame col:nth-child(6) { width: 44px; }   /* THK */
+    .history-frame col:nth-child(7) { width: 38px; }   /* QTY */
+    .history-frame col:nth-child(8) { width: 38px; }   /* LCT */
+
+    .history-frame th {
+      background: #1d4b6e;
+      color: #fff;
+      font-weight: 500;
+      font-size: 10px;
+      letter-spacing: 0.3px;
+      padding: 7px 4px;
+      text-align: left;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      border-right: 1px solid #2f638b;
+      border-bottom: 2px solid #163a56;
+      white-space: nowrap;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .history-frame th:last-child { border-right: none; }
+
+    .history-frame td {
+      padding: 5px 4px;
+      border-bottom: 1px solid #eaf1f8;
+      color: #1e2f3e;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: middle;
+    }
+    .history-frame tr:last-child td { border-bottom: none; }
+    .history-frame tr:hover td { background: #f5faff; }
+
+    .history-frame td.date-cell {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+    }
+
+    #hiddenFrame { display: none; }
+
+    @media (max-width: 360px) {
+      h1 { font-size: 1rem; }
+      .sk-badge { font-size: 0.66rem; padding: 4px 8px; max-width: 50%; }
+      .cs-dim-container { gap: 6px; }
+      .refresh-btn { padding: 0 12px; font-size: 0.76rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- ============ 顶部：标题 + Storekeeper ============ -->
+    <div class="top-bar">
+      <h1>📋 Section Stock Take</h1>
+      <div class="sk-badge empty" id="skBadge">Storekeeper : —</div>
+    </div>
+
+    <!-- ============ 录入表单 ============ -->
+    <div class="card">
+      <form id="stockTakeForm"
+            action="#"
+            method="POST"
+            target="hiddenFrame">
+
+        <input type="hidden" name="action" value="submit">
+        <input type="hidden" name="storekeeper" id="storekeeperInput" value="">
+
+        <div class="section-title">Raw Material Info</div>
+
+        <!-- 第 1 行：Shape / Grade -->
+        <div class="form-row">
+          <div class="form-group">
+            <label for="shape">Shape</label>
+            <select id="shape" name="shape" required>
+              <option value="">Please select</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="grade">Grade</label>
+            <select id="grade" name="grade" required>
+              <option value="">Please select</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 第 2 行：Surface / Thickness -->
+        <div class="form-row">
+          <div class="form-group">
+            <label for="surface">Surface</label>
+            <select id="surface" name="surface" required>
+              <option value="">Please select</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="thickness">Thickness</label>
+            <select id="thickness" name="thickness" required>
+              <option value="">Please select</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 第 3 行：C/S Dim 独占一行 -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>C/S Dim</label>
+            <div class="cs-dim-container">
+              <select id="csDim1" name="csDim1" required>
+                <option value="">Select</option>
+              </select>
+              <span class="cs-dim-x">×</span>
+              <select id="csDim2" name="csDim2" required>
+                <option value="">Select</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stock Take Result 保持原样 -->
+        <div class="section-title">Stock Take Result</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="quantity">Stock Take Quantity</label>
+            <input type="number" id="quantity" name="quantity" placeholder="Enter number" min="0" step="any" required>
+          </div>
+          <div class="form-group">
+            <label for="remarks">Location</label>
+            <input type="text" id="remarks" name="remarks" placeholder="Enter location">
+          </div>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submitBtn">Submit</button>
+        <div id="submitMessage"></div>
+      </form>
+    </div>
+
+    <!-- ============ 最近 7 天记录 ============ -->
+    <div class="card history-card">
+      <div class="history-header">
+        <span class="history-title" id="historyTitle">Last 7 Days Records</span>
+        <button type="button" class="refresh-btn" id="refreshBtn" title="Refresh records">Refresh</button>
+      </div>
+      <div class="history-frame" id="historyFrame">
+        <div class="loading">⏳ Loading…</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 接收 form 回应，避免页面跳转 -->
+  <iframe name="hiddenFrame" id="hiddenFrame"></iframe>
+
+  <script>
+  (function () {
+    'use strict';
+
+    /* =========================================================
+       ⚠️ 部署好 GAS 后，把下面这个占位符换成你的 Web App URL
+       ========================================================= */
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbw6VWcOzEmSYxwEviogEeCsfsoQqEWRbuNCP1jwRwSyQ-NY6zARLNmg8IeBXHdAfx1m/exec';
+
+    const HISTORY_DAYS = 7;      // 当天 + 前 6 天
+    const HEADERS      = ['DAT', 'SHP', 'GRD', 'SUR', 'CSD', 'THK', 'QTY', 'LCT'];
+
+    /* ---------------------------------------------------------
+       1. 从 URL query 读取 Storekeeper
+       --------------------------------------------------------- */
+    let storekeeper = '';
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      storekeeper = (qs.get('H') || qs.get('h') || '').trim();
+    } catch (err) {
+      storekeeper = '';
+    }
+
+    const skBadge = document.getElementById('skBadge');
+    if (storekeeper) {
+      skBadge.textContent = 'Storekeeper : ' + storekeeper;
+      skBadge.classList.remove('empty');
+      skBadge.title = 'Storekeeper : ' + storekeeper;
+    } else {
+      skBadge.textContent = 'Storekeeper : —';
+      skBadge.classList.add('empty');
+    }
+    document.getElementById('storekeeperInput').value = storekeeper;
+
+    /* ---------------------------------------------------------
+       2. 表单绑定 GAS
+       --------------------------------------------------------- */
+    const form        = document.getElementById('stockTakeForm');
+    const submitBtn   = document.getElementById('submitBtn');
+    const hiddenFrame = document.getElementById('hiddenFrame');
+
+    form.action = GAS_URL;
+
+    let isSubmitting = false;
+
+    /* ---------------------------------------------------------
+       3. 载入下拉选项 + 首次自动刷新历史
+       --------------------------------------------------------- */
+    window.addEventListener('DOMContentLoaded', () => {
+      loadOptions();
+      loadHistory();          // 打开时自动刷新一次
+    });
+
+    async function loadOptions() {
+      try {
+        const resp = await fetch(GAS_URL + '?action=getOptions&t=' + Date.now(), { cache: 'no-store' });
+        const options = await resp.json();
+        populateDropdowns(options);
+      } catch (err) {
+        console.error('Failed to load options:', err);
+        showMessage('Failed to load options, please refresh and try again', true);
+      }
+    }
+
+    function populateDropdowns(options) {
+      const fill = (id, list) => {
+        const sel = document.getElementById(id);
+        (list || []).forEach(opt => sel.add(new Option(opt, opt)));
+      };
+      fill('shape',     options.shapes);
+      fill('grade',     options.grades);
+      fill('surface',   options.surfaces);
+      fill('thickness', options.thicknesses);
+
+      const cs1 = document.getElementById('csDim1');
+      const cs2 = document.getElementById('csDim2');
+      (options.csDims || []).forEach(opt => {
+        cs1.add(new Option(opt, opt));
+        cs2.add(new Option(opt, opt));
+      });
+    }
+
+    /* ---------------------------------------------------------
+       4. 表单提交
+       --------------------------------------------------------- */
+    form.addEventListener('submit', function (e) {
+      const csDim1 = document.getElementById('csDim1').value;
+      const csDim2 = document.getElementById('csDim2').value;
+
+      if (!csDim1 || !csDim2) {
+        e.preventDefault();
+        showMessage('Please select both C/S Dim values', true);
+        return;
+      }
+
+      isSubmitting = true;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting...';
+      showMessage('Submitting...', false);
+    });
+
+    hiddenFrame.addEventListener('load', function () {
+      if (!isSubmitting) return;         // 忽略 iframe 初始加载
+      isSubmitting = false;
+
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit';
+      showMessage('✅ Stock take record saved successfully!', false);
+
+      form.reset();
+      document.getElementById('storekeeperInput').value = storekeeper;
+
+      // 提交成功后刷新一次历史记录表
+      loadHistory();
+    });
+
+    function showMessage(msg, isError) {
+      const msgDiv = document.getElementById('submitMessage');
+      msgDiv.textContent = msg;
+      msgDiv.className = isError ? 'error' : '';
+    }
+
+    /* ---------------------------------------------------------
+       5. 最近 7 天记录
+       --------------------------------------------------------- */
+    const historyFrame = document.getElementById('historyFrame');
+    const refreshBtn   = document.getElementById('refreshBtn');
+
+    refreshBtn.addEventListener('click', function () {
+      loadHistory();
+    });
+
+    async function loadHistory() {
+      historyFrame.innerHTML = '<div class="loading">⏳ Loading…</div>';
+      try {
+        const url = GAS_URL
+          + '?action=getRecent&days=' + HISTORY_DAYS
+          + '&t=' + Date.now();
+        const resp = await fetch(url, { cache: 'no-store' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+        const payload = await resp.json();
+        if (!payload || payload.status !== 'ok') {
+          throw new Error((payload && payload.message) || 'Invalid response');
+        }
+        renderHistory(payload.data || []);
+      } catch (err) {
+        console.error(err);
+        historyFrame.innerHTML =
+          '<div class="error-box">❌ Load failed: ' + escapeHtml(err.message) + '</div>';
+      }
+    }
+
+    function renderHistory(rows) {
+      if (!Array.isArray(rows) || rows.length === 0) {
+        historyFrame.innerHTML = '<div class="loading">⚠️ No records in the last ' + HISTORY_DAYS + ' days</div>';
+        return;
+      }
+
+      let html = '<table><colgroup>' + '<col>'.repeat(8) + '</colgroup><thead><tr>';
+      HEADERS.forEach((h) => {
+        html += '<th>' + h + '</th>';
+      });
+      html += '</tr></thead><tbody>';
+
+      rows.forEach(r => {
+        html += '<tr>';
+        for (let i = 0; i < 8; i++) {
+          let value = r[i];
+          if (i === 0) value = formatDateShort(value);   // DAT 只显示 DD/MM
+          const cls = (i === 0) ? ' class="date-cell"' : '';
+          html += '<td' + cls + '>' + escapeHtml(value) + '</td>';
+        }
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+
+      historyFrame.innerHTML = html;
+    }
+
+    /* ---------------------------------------------------------
+       工具
+       --------------------------------------------------------- */
+    function escapeHtml(s) {
+      if (s === null || s === undefined) return '';
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    /* ---------------------------------------------------------
+       时间：把 Timestamp 转成 DD/MM
+       兼容两种来源格式：
+         1) MM/DD/YYYY HH:mm:ss
+         2) YYYY-MM-DD HH:mm:ss
+       --------------------------------------------------------- */
+    function pad2(n) {
+      return String(n).padStart(2, '0');
+    }
+
+    function formatDateShort(val) {
+      if (val === null || val === undefined || val === '') return '';
+      const s = String(val).trim();
+      if (!s) return '';
+
+      // 1) YYYY-MM-DD ...
+      let m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+      if (m) {
+        return pad2(m[3]) + '/' + pad2(m[2]);   // DD/MM
+      }
+
+      // 2) MM/DD/YYYY ...
+      m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+      if (m) {
+        return pad2(m[2]) + '/' + pad2(m[1]);   // DD/MM
+      }
+
+      // 3) 兜底
+      const d = new Date(s);
+      if (!isNaN(d.getTime())) {
+        return pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1);
+      }
+      return s;
+    }
+
+  })();
+  </script>
+</body>
+</html>
