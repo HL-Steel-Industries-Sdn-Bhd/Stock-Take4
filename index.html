@@ -249,7 +249,6 @@
     /* ===== 历史记录表 ===== */
     .history-frame table {
       table-layout: fixed;
-      /* width 和 col width 由 JS 动态控制，这里无需写死 */
       border-collapse: collapse;
       font-size: 10px;
       line-height: 1.25;
@@ -459,10 +458,10 @@
     const HEADERS      = ['DAT', 'SHP', 'GRD', 'SUR', 'CSD', 'THK', 'QTY', 'LCT'];
 
     /* =========================================================
-       自定义的初始列宽数据
+       自定义的初始列宽数据（更新了竖屏数据）
        ========================================================= */
-    const WIDTHS_PORTRAIT  = [35, 75, 44, 26, 85, 40, 30, 34];
-    const WIDTHS_LANDSCAPE = [40, 90, 67, 70, 95, 50, 34, 48]; // 电脑横屏和手机横屏共用
+    const WIDTHS_PORTRAIT  = [30, 70, 40, 24, 85, 40, 38, 34];
+    const WIDTHS_LANDSCAPE = [40, 90, 67, 70, 95, 50, 34, 48];
 
     /* ---------------------------------------------------------
        1. 从 URL query 读取 Storekeeper
@@ -586,6 +585,12 @@
     let userHasCustomized = false; // 标记用户是否手动拖拽过
 
     refreshBtn.addEventListener('click', function () {
+      // ⚡ 核心修改：点击 Refresh 时，强行清空之前手动拖拽的宽度记录
+      userHasCustomized = false;
+      Object.keys(savedColWidths).forEach(k => delete savedColWidths[k]);
+      savedTableWidth = '';
+      
+      // 重新请求数据并渲染（渲染时会因为 userHasCustomized = false，自动恢复初始列宽）
       loadHistory();
     });
 
@@ -647,7 +652,7 @@
           if (cols[idx]) cols[idx].style.width = savedColWidths[idx];
         });
       } else {
-        // 如果没有手动调过，自动应用当前屏幕方向的最优默认宽度
+        // 如果没有手动调过（或者刚点了 Refresh），自动应用当前屏幕方向的最优默认宽度
         applyResponsiveWidths(false);
       }
 
@@ -666,7 +671,7 @@
 
       const cols = table.querySelectorAll('colgroup col');
       
-      // 判断方向（不考虑设备类型，只看宽高比。软键盘引起的误判在 resize 监听中已被过滤）
+      // 判断方向
       const isPortrait = window.innerHeight > window.innerWidth;
       const widths = isPortrait ? WIDTHS_PORTRAIT : WIDTHS_LANDSCAPE;
 
