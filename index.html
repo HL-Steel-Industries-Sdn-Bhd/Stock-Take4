@@ -218,10 +218,10 @@
     }
     .refresh-btn:active { background: #0056CC; }
 
-    /* 表格外框：只允许纵向滚动，不允许横向滚动 */
+    /* 表格外框：纵向可滚，横向永不出现滚动条（内容可溢出，被裁掉） */
     .history-frame {
-      overflow-y: auto;
       overflow-x: hidden;
+      overflow-y: auto;
       max-height: 320px;
       border: 1px solid #e2eaf2;
       border-radius: 8px;
@@ -246,25 +246,24 @@
       margin: 8px;
     }
 
-    /* ===== 历史记录表：宽度恒等于 frame，永远不横向溢出 ===== */
+    /* ===== 历史记录表：宽度由列宽总和决定，可超出 frame ===== */
     .history-frame table {
       table-layout: fixed;
-      width: 100%;
+      width: 368px;
       border-collapse: collapse;
       font-size: 10px;
       line-height: 1.25;
     }
 
-    /* 默认列宽用百分比（原 44/34/44/34/92/44/38/38 = 368px 换算而来）
-       总和 = 100%，拖拽时由 JS 动态改写百分比 */
-    .history-frame col:nth-child(1) { width: 11.96%; }  /* DAT */
-    .history-frame col:nth-child(2) { width: 9.24%; }   /* SHP */
-    .history-frame col:nth-child(3) { width: 11.96%; }  /* GRD */
-    .history-frame col:nth-child(4) { width: 9.24%; }   /* SUR */
-    .history-frame col:nth-child(5) { width: 25%; }     /* CSD */
-    .history-frame col:nth-child(6) { width: 11.96%; }  /* THK */
-    .history-frame col:nth-child(7) { width: 10.32%; }  /* QTY */
-    .history-frame col:nth-child(8) { width: 10.32%; }  /* LCT */
+    /* 默认列宽：DAT SHP GRD SUR CSD THK QTY LCT （合计 368px） */
+    .history-frame col:nth-child(1) { width: 44px; }   /* DAT */
+    .history-frame col:nth-child(2) { width: 34px; }   /* SHP */
+    .history-frame col:nth-child(3) { width: 44px; }   /* GRD */
+    .history-frame col:nth-child(4) { width: 34px; }   /* SUR */
+    .history-frame col:nth-child(5) { width: 92px; }   /* CSD */
+    .history-frame col:nth-child(6) { width: 44px; }   /* THK */
+    .history-frame col:nth-child(7) { width: 38px; }   /* QTY */
+    .history-frame col:nth-child(8) { width: 38px; }   /* LCT */
 
     .history-frame th {
       background: #1d4b6e;
@@ -302,7 +301,7 @@
       font-feature-settings: "tnum";
     }
 
-    /* ===== 列宽拖拽把手（保留） ===== */
+    /* ===== 列宽拖拽把手 ===== */
     .history-frame th.resizable {
       cursor: col-resize;
       transition: background 0.15s;
@@ -585,8 +584,9 @@
     const historyFrame = document.getElementById('historyFrame');
     const refreshBtn   = document.getElementById('refreshBtn');
 
-    // 用户手动拖拽后的列宽百分比（刷新数据时保留）
-    let savedColPcts = null;
+    // 用户手动拖拽后的列宽（px）与表格总宽，刷新数据时保留
+    const savedColWidths = {};
+    let savedTableWidth = '';
 
     refreshBtn.addEventListener('click', function () {
       loadHistory();
@@ -640,27 +640,27 @@
 
       historyFrame.innerHTML = html;
 
-      // 还原用户拖拽后的列宽百分比（如果有）
-      const cols = historyFrame.querySelectorAll('colgroup col');
-      if (savedColPcts && savedColPcts.length === 8) {
-        savedColPcts.forEach((pct, i) => {
-          if (cols[i] && pct > 0) cols[i].style.width = pct + '%';
-        });
-      }
+      const table = historyFrame.querySelector('table');
+      const cols  = table.querySelectorAll('colgroup col');
+
+      // 还原用户保存的列宽与总宽
+      if (savedTableWidth) table.style.width = savedTableWidth;
+      Object.keys(savedColWidths).forEach(idx => {
+        if (cols[idx]) cols[idx].style.width = savedColWidths[idx];
+      });
 
       makeResizable();
     }
 
     /* ---------------------------------------------------------
-       6. 列宽拖拽（百分比模式，永不产生横向滚动条）
+       6. 列宽拖拽（px 模式，总宽可变，可溢出 frame）
        --------------------------------------------------------- */
     function makeResizable() {
       const table = historyFrame.querySelector('table');
       if (!table) return;
       const cols = table.querySelectorAll('colgroup col');
 
-      const MIN_PCT = 6;   // 单列最小百分比
-      const MAX_PCT = 70;  // 单列最大百分比
+      const MIN_WIDTH = 26;
 
       historyFrame.querySelectorAll('th.resizable').forEach(th => {
         const colIndex = parseInt(th.dataset.col, 10);
@@ -668,10 +668,7 @@
         const handle = th.querySelector('.resizer');
         if (!col || !handle) return;
 
-        let startX = 0;
-        let startPct = 0;
-        let allStartPcts = [];
-        let dragging = false;
+        let startX = 0, startWidth = 0, startTableWidth = 0, dragging = false;
 
         const getX = e => {
           if (e.touches && e.touches.length) return e.touches[0].clientX;
@@ -687,16 +684,9 @@
           document.body.style.userSelect = 'none';
           document.body.style.cursor = 'col-resize';
 
-          startX = getX(e);
-
-          const tableWidth = table.getBoundingClientRect().width || 1;
-          startPct = th.getBoundingClientRect().width / tableWidth * 100;
-
-          // 记录所有列当前百分比（用于按比例分配剩余空间）
-          allStartPcts = [];
-          cols.forEach(c => {
-            allStartPcts.push(c.getBoundingClientRect().width / tableWidth * 100);
-          });
+          startX          = getX(e);
+          startWidth      = th.getBoundingClientRect().width;
+          startTableWidth = table.getBoundingClientRect().width;
 
           document.addEventListener('mousemove', onMove, { passive: false });
           document.addEventListener('mouseup', onEnd);
@@ -709,25 +699,16 @@
           if (!dragging) return;
           if (e.cancelable) e.preventDefault();
 
-          const tableWidth = table.getBoundingClientRect().width || 1;
-          const deltaPx  = getX(e) - startX;
-          const deltaPct = deltaPx / tableWidth * 100;
+          const delta        = getX(e) - startX;
+          const newWidth     = Math.max(MIN_WIDTH, startWidth + delta);
+          const actualDelta  = newWidth - startWidth;
+          const newTableW    = Math.max(100, startTableWidth + actualDelta);
 
-          let newPct = startPct + deltaPct;
-          newPct = Math.max(MIN_PCT, Math.min(MAX_PCT, newPct));
+          col.style.width  = newWidth + 'px';
+          table.style.width = newTableW + 'px';
 
-          const otherStartTotal = 100 - allStartPcts[colIndex];
-          const otherNewTotal   = 100 - newPct;
-          const ratio = otherStartTotal > 0 ? otherNewTotal / otherStartTotal : 0;
-
-          // 当前列用新百分比，其他列按原比例缩放，总和保持 100%
-          cols.forEach((c, i) => {
-            if (i === colIndex) {
-              c.style.width = newPct + '%';
-            } else {
-              c.style.width = (allStartPcts[i] * ratio) + '%';
-            }
-          });
+          savedColWidths[colIndex] = newWidth + 'px';
+          savedTableWidth = newTableW + 'px';
         };
 
         const onEnd = () => {
@@ -741,12 +722,6 @@
           document.removeEventListener('touchmove', onMove);
           document.removeEventListener('touchend', onEnd);
           document.removeEventListener('touchcancel', onEnd);
-
-          // 保存当前各列百分比，刷新后沿用
-          savedColPcts = [];
-          cols.forEach(c => {
-            savedColPcts.push(parseFloat(c.style.width) || 0);
-          });
         };
 
         handle.addEventListener('mousedown', onStart);
